@@ -20,9 +20,10 @@ function render() {
   const app = document.getElementById("admin-app");
   app.innerHTML = `
     <header class="top">
-      <div class="brand">
-        <h1>MIRROR&nbsp;&amp;&nbsp;MAGIC</h1>
-        <span class="tag">Admin Dashboard</span>
+      <div class="brand" style="display:flex; align-items:center; gap:15px;">
+        <img src="/logo.png" alt="Mirror & Magic Logo" style="height: 80px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+        <h1 style="display:none;">MIRROR&nbsp;&amp;&nbsp;MAGIC</h1>
+        <span class="tag" style="margin-top: 0;">Admin Dashboard</span>
       </div>
       ${adminToken ? `
         <div style="display:flex;gap:15px;align-items:center;">
