@@ -145,12 +145,32 @@ app.get("/api/slots", async (req, res) => {
     );
     const taken = takenResult.rows.map(r => r.time);
 
+    const leavesResult = await db.query("SELECT * FROM admin_leaves WHERE date = $1", [date]);
+    const leaves = leavesResult.rows;
+
+    const dateObj = new Date(date + "T00:00:00");
+    const isTuesday = dateObj.getDay() === 2;
+
     const now = new Date();
     const slots = allTimes.map(time => {
       let status = "open";
-      if (isLunch(time)) status = "lunch";
-      else if (taken.includes(time)) status = "taken";
-      else if (slotToDate(date, time) < now) status = "past";
+      if (isTuesday) status = "holiday";
+      else {
+        let inLeave = false;
+        for (const l of leaves) {
+          if (l.is_full_day) { inLeave = true; break; }
+          if (l.start_time && l.end_time) {
+            const slotDt = slotToDate(date, time);
+            const startDt = slotToDate(date, l.start_time);
+            const endDt = slotToDate(date, l.end_time);
+            if (slotDt >= startDt && slotDt < endDt) { inLeave = true; break; }
+          }
+        }
+        if (inLeave) status = "leave";
+        else if (isLunch(time)) status = "lunch";
+        else if (taken.includes(time)) status = "taken";
+        else if (slotToDate(date, time) < now) status = "past";
+      }
       return { time, status };
     });
 
@@ -170,11 +190,27 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
   if (slotDt < new Date()) {
     return res.status(400).json({ error: "That slot is in the past." });
   }
+  const dateObj = new Date(date + "T00:00:00");
+  if (dateObj.getDay() === 2) {
+    return res.status(400).json({ error: "Sorry, Tuesday is a holiday." });
+  }
   if (!generateSlotTimes().includes(time)) {
     return res.status(400).json({ error: "Invalid time slot." });
   }
 
   try {
+    const leavesResult = await db.query("SELECT * FROM admin_leaves WHERE date = $1", [date]);
+    for (const l of leavesResult.rows) {
+      if (l.is_full_day) return res.status(400).json({ error: "The salon is closed on this day." });
+      if (l.start_time && l.end_time) {
+        const startDt = slotToDate(date, l.start_time);
+        const endDt = slotToDate(date, l.end_time);
+        if (slotDt >= startDt && slotDt < endDt) {
+          return res.status(400).json({ error: "The salon is closed during this time." });
+        }
+      }
+    }
+
     const existingDayBookingResult = await db.query(
       "SELECT id FROM bookings WHERE user_id = $1 AND date = $2 AND status = 'confirmed'",
       [req.user.id, date]
@@ -316,6 +352,63 @@ app.post("/api/admin/verify-otp", adminMiddleware, async (req, res) => {
 
     await db.query("UPDATE bookings SET status = 'completed' WHERE id = $1", [booking_id]);
     res.json({ success: true, message: "OTP verified! Booking marked as completed." });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/admin/bookings/:id/cancel", adminMiddleware, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1", [id]);
+    const booking = bookingResult.rows[0];
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found." });
+    }
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ error: "Booking is already cancelled." });
+    }
+
+    await db.query("UPDATE bookings SET status = 'cancelled' WHERE id = $1", [id]);
+    res.json({ success: true, message: "Booking cancelled successfully." });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/admin/leaves", adminMiddleware, async (req, res) => {
+  try {
+    const result = await db.query("SELECT * FROM admin_leaves ORDER BY date ASC, id ASC");
+    res.json({ leaves: result.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/admin/leaves", adminMiddleware, async (req, res) => {
+  const { date, is_full_day, start_time, end_time } = req.body || {};
+  if (!date) return res.status(400).json({ error: "date is required." });
+  try {
+    await db.query(
+      "INSERT INTO admin_leaves (date, is_full_day, start_time, end_time) VALUES ($1, $2, $3, $4)",
+      [date, is_full_day === true, start_time || null, end_time || null]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/admin/leaves/:id", adminMiddleware, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    await db.query("DELETE FROM admin_leaves WHERE id = $1", [id]);
+    res.json({ success: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Internal server error" });

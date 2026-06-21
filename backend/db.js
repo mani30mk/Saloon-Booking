@@ -31,6 +31,15 @@ const initDb = async () => {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_active_slot
       ON bookings(date, time)
       WHERE status = 'confirmed';
+
+      CREATE TABLE IF NOT EXISTS admin_leaves (
+        id SERIAL PRIMARY KEY,
+        date TEXT NOT NULL,
+        is_full_day BOOLEAN NOT NULL DEFAULT true,
+        start_time TEXT,
+        end_time TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log("Database initialized");
   } catch (err) {

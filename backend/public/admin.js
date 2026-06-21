@@ -1,6 +1,7 @@
 let adminToken = localStorage.getItem("salon_admin_token") || null;
 let view = adminToken ? "dashboard" : "login";
 let bookings = [];
+let leaves = [];
 let authMsg = null;
 let busy = false;
 
@@ -23,14 +24,22 @@ function render() {
         <h1>SHARP&nbsp;&amp;&nbsp;FADE</h1>
         <span class="tag">Admin Dashboard</span>
       </div>
-      ${adminToken ? `<button class="linklike" id="logoutBtn">log out</button>` : ``}
+      ${adminToken ? `
+        <div style="display:flex;gap:15px;align-items:center;">
+          <button class="linklike" id="tabDash" style="${view==='dashboard'?'text-decoration:underline;font-weight:bold;':'text-decoration:none;'}">Bookings</button>
+          <button class="linklike" id="tabLeaves" style="${view==='leaves'?'text-decoration:underline;font-weight:bold;':'text-decoration:none;'}">Leaves</button>
+          <button class="linklike" id="logoutBtn">log out</button>
+        </div>` : ``}
     </header>
     <div id="content"></div>
   `;
   const content = document.getElementById("content");
-  content.innerHTML = adminToken ? renderDashboard() : renderLogin();
+  if (!adminToken) content.innerHTML = renderLogin();
+  else if (view === "dashboard") content.innerHTML = renderDashboard();
+  else if (view === "leaves") content.innerHTML = renderLeaves();
   bindEvents();
   if (adminToken && view === "dashboard") loadBookings();
+  if (adminToken && view === "leaves") loadLeaves();
 }
 
 function renderLogin() {
@@ -62,12 +71,12 @@ function renderDashboard() {
     if (b.status === "cancelled") { badgeClass = "cancelled"; badgeText = "Cancelled"; }
     else if (b.status === "completed") { badgeClass = "completed"; badgeText = "Completed"; }
 
-    let actionHtml = "";
     if (b.status === "confirmed") {
       actionHtml = `
         <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
           <input type="text" id="otp-${b.id}" placeholder="Enter OTP" style="flex:1; min-width:120px; padding:10px; font-size:16px;" />
           <button class="btn verify-btn" data-id="${b.id}" style="margin:0; flex-shrink:0;">Verify OTP</button>
+          <button class="btn danger admin-cancel-btn" data-id="${b.id}" style="margin:0; flex-shrink:0;">Cancel Slot</button>
         </div>
       `;
     }
@@ -123,6 +132,61 @@ function renderDashboardContent() {
   bindDashboardEvents();
 }
 
+async function loadLeaves() {
+  try {
+    const data = await api("/api/admin/leaves");
+    leaves = data.leaves;
+  } catch (e) {
+    authMsg = { type: "error", text: e.message };
+  }
+  renderLeavesContent();
+}
+
+function renderLeavesContent() {
+  const content = document.getElementById("content");
+  if(content) content.innerHTML = renderLeaves();
+  bindLeavesEvents();
+}
+
+function renderLeaves() {
+  const msg = authMsg ? `<div class="msg ${authMsg.type}">${authMsg.text}</div>` : "";
+  
+  const items = leaves.length === 0 ? `<p class="empty">No leaves added.</p>` : leaves.map(l => {
+    let lbl = l.is_full_day ? "Full Day" : `From ${l.start_time} to ${l.end_time}`;
+    return `<div class="booking-item">
+      <div class="meta"><div class="date">${l.date}</div><div style="margin-top:4px;font-size:14px;">${lbl}</div></div>
+      <button class="btn danger delete-leave-btn" data-id="${l.id}">Delete</button>
+    </div>`;
+  }).join("");
+
+  return `
+    ${msg}
+    <div class="card" style="max-width:800px;">
+      <h2>Add Leave</h2>
+      <div class="row">
+        <div style="flex:1;"><label>Date</label><input type="date" id="lv-date" /></div>
+        <div style="flex:1;"><label>Type</label>
+          <select id="lv-type" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;">
+            <option value="full">Full Day</option>
+            <option value="partial">Specific Hours</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" id="lv-times" style="display:none; margin-top:10px;">
+        <div style="flex:1;"><label>Start Time</label><input type="text" id="lv-start" placeholder="e.g. 1:00PM" /></div>
+        <div style="flex:1;"><label>End Time</label><input type="text" id="lv-end" placeholder="e.g. 3:00PM" /></div>
+      </div>
+      <div style="margin-top:18px;">
+        <button class="btn" id="addLeaveBtn">Save Leave</button>
+      </div>
+    </div>
+    <div class="card" style="max-width:800px;">
+      <h2>Upcoming Leaves</h2>
+      ${items}
+    </div>
+  `;
+}
+
 function bindEvents() {
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) logoutBtn.onclick = logout;
@@ -131,7 +195,13 @@ function bindEvents() {
     const loginBtn = document.getElementById("loginBtn");
     if (loginBtn) loginBtn.onclick = doLogin;
   } else {
-    bindDashboardEvents();
+    const tabDash = document.getElementById("tabDash");
+    if (tabDash) tabDash.onclick = () => { view = "dashboard"; authMsg = null; render(); };
+    const tabLeaves = document.getElementById("tabLeaves");
+    if (tabLeaves) tabLeaves.onclick = () => { view = "leaves"; authMsg = null; render(); };
+
+    if (view === "dashboard") bindDashboardEvents();
+    if (view === "leaves") bindLeavesEvents();
   }
 }
 
@@ -156,6 +226,77 @@ function bindDashboardEvents() {
       } catch (e) {
         authMsg = { type: "error", text: e.message };
         renderDashboardContent();
+      }
+    };
+  });
+
+  document.querySelectorAll(".admin-cancel-btn").forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm("Cancel this booking?")) return;
+      const id = btn.dataset.id;
+      btn.innerText = "Cancelling...";
+      btn.disabled = true;
+      try {
+        const res = await api("/api/admin/bookings/" + id + "/cancel", { method: "POST" });
+        authMsg = { type: "success", text: res.message };
+        await loadBookings();
+      } catch (e) {
+        authMsg = { type: "error", text: e.message };
+        renderDashboardContent();
+      }
+    };
+  });
+}
+
+function bindLeavesEvents() {
+  const typeSel = document.getElementById("lv-type");
+  if (typeSel) {
+    typeSel.onchange = () => {
+      document.getElementById("lv-times").style.display = typeSel.value === "partial" ? "flex" : "none";
+    };
+  }
+
+  const addBtn = document.getElementById("addLeaveBtn");
+  if (addBtn) {
+    addBtn.onclick = async () => {
+      const date = document.getElementById("lv-date").value;
+      const is_full_day = typeSel.value === "full";
+      const start_time = document.getElementById("lv-start").value.trim();
+      const end_time = document.getElementById("lv-end").value.trim();
+
+      if (!date) {
+        authMsg = { type: "error", text: "Please select a date." };
+        renderLeavesContent();
+        return;
+      }
+
+      addBtn.disabled = true; addBtn.innerText = "Saving...";
+      try {
+        await api("/api/admin/leaves", {
+          method: "POST",
+          body: JSON.stringify({ date, is_full_day, start_time, end_time })
+        });
+        authMsg = { type: "success", text: "Leave added." };
+        await loadLeaves();
+      } catch (e) {
+        authMsg = { type: "error", text: e.message };
+        renderLeavesContent();
+      }
+    };
+  }
+
+  document.querySelectorAll(".delete-leave-btn").forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm("Delete this leave?")) return;
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await api("/api/admin/leaves/" + id, { method: "DELETE" });
+        authMsg = { type: "success", text: "Leave deleted." };
+        await loadLeaves();
+      } catch (e) {
+        authMsg = { type: "error", text: e.message };
+        renderLeavesContent();
       }
     };
   });

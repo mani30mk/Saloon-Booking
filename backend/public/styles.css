@@ -92,6 +92,7 @@ input:focus{border-color:var(--rust);box-shadow:0 0 0 2px rgba(179,70,31,0.15);}
 .slot.taken{background:#e3d6d6;color:#a98f8f;cursor:not-allowed;text-decoration:line-through;}
 .slot.selected{background:var(--rust);color:#fff;border-color:var(--rust-dark);}
 .slot.past{opacity:0.35;cursor:not-allowed;}
+.slot.leave{background:repeating-linear-gradient(45deg,#d6e3d6,#d6e3d6 6px,#c5d6c5 6px,#c5d6c5 12px);color:#6b8a6b;cursor:not-allowed;}
 
 .legend{display:flex;gap:18px;font-size:12px;margin-bottom:14px;flex-wrap:wrap;}
 .legend span{display:inline-flex;align-items:center;gap:6px;}

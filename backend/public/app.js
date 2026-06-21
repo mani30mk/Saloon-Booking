@@ -172,7 +172,7 @@ function renderBookingView() {
   if (!viewArea) return;
 
   const days = [];
-  for (let i = 0; i < 14; i++) days.push(dateAtOffset(i));
+  for (let i = 0; i < 20; i++) days.push(dateAtOffset(i));
   const dowNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const chips = days.map((d, i) => {
     const active = i === selectedDayOffset ? "active" : "";
@@ -194,6 +194,7 @@ function renderBookingView() {
       if (s.status === "lunch") cls += " lunch";
       else if (s.status === "taken") cls += " taken";
       else if (s.status === "past") cls += " past";
+      else if (s.status === "holiday" || s.status === "leave") cls += " leave";
       else {
         clickable = true;
         if (selectedSlot === s.time) cls += " selected";
@@ -236,6 +237,7 @@ function renderBookingView() {
         <span><span class="sw" style="background:var(--rust);"></span>Selected</span>
         <span><span class="sw" style="background:#e3d6d6;"></span>Booked</span>
         <span><span class="sw" style="background:#e8dfc9;"></span>Lunch break</span>
+        <span><span class="sw" style="background:#d6e3d6;"></span>Holiday/Leave</span>
       </div>
       <div class="slotgrid">${slotsHtml}</div>
     </div>
