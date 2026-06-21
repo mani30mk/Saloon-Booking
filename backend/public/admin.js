@@ -57,17 +57,17 @@ function renderLogin() {
 }
 
 function renderDashboard() {
-  if (bookings.length === 0) {
-    return `<div class="card"><h2>All Bookings</h2><p class="empty">No bookings found.</p></div>`;
-  }
-
   const msg = authMsg ? `<div class="msg ${authMsg.type}">${authMsg.text}</div>` : "";
 
-  const items = bookings.map(b => {
+  const pending = bookings.filter(b => b.status === "confirmed");
+  const completed = bookings.filter(b => b.status === "completed");
+  const cancelled = bookings.filter(b => b.status === "cancelled");
+
+  const renderItem = (b) => {
     const dateLabel = new Date(b.date + "T00:00:00").toDateString();
     
     let badgeClass = "ok";
-    let badgeText = "Confirmed";
+    let badgeText = "Pending";
     if (b.status === "cancelled") { badgeClass = "cancelled"; badgeText = "Cancelled"; }
     else if (b.status === "completed") { badgeClass = "completed"; badgeText = "Completed"; }
 
@@ -90,9 +90,21 @@ function renderDashboard() {
         </div>
         ${actionHtml}
       </div>`;
-  }).join("");
+  };
 
-  return `<div class="card" style="max-width:800px;"><h2>All Bookings</h2>${msg}${items}</div>`;
+  const renderSection = (title, list) => {
+    const itemsHtml = list.length > 0 ? list.map(renderItem).join("") : `<p class="empty" style="margin-bottom:0;">No bookings found.</p>`;
+    return `<div class="card" style="margin-bottom:20px;"><h2>${title}</h2>${itemsHtml}</div>`;
+  };
+
+  return `
+    <div style="max-width:800px;">
+      ${msg}
+      ${renderSection("Pending Bookings", pending)}
+      ${renderSection("Completed Bookings", completed)}
+      ${renderSection("Cancelled Bookings", cancelled)}
+    </div>
+  `;
 }
 
 async function doLogin() {

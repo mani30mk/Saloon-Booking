@@ -347,11 +347,21 @@ function adminMiddleware(req, res, next) {
 
 app.get("/api/admin/bookings", adminMiddleware, async (req, res) => {
   try {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yesterdayStr = `${yyyy}-${mm}-${dd}`;
+
+    await db.query("DELETE FROM bookings WHERE status = 'completed' AND date < $1", [yesterdayStr]);
+
     const result = await db.query(`
       SELECT b.id, b.date, b.time, b.status, b.otp, u.name, u.phone 
       FROM bookings b 
       JOIN users u ON b.user_id = u.id 
-      ORDER BY b.date DESC, b.time DESC
+      ORDER BY b.date ASC, b.time ASC
     `);
     res.json({ bookings: result.rows });
   } catch (e) {
