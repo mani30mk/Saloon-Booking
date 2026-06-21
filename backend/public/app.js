@@ -42,7 +42,7 @@ function render() {
   app.innerHTML = `
     <header class="top">
       <div class="brand">
-        <h1>SHARP&nbsp;&amp;&nbsp;FADE</h1>
+        <h1>MIRROR&nbsp;&amp;&nbsp;MAGIC</h1>
         <span class="tag">Chair Booking</span>
       </div>
       ${currentUser ? `
