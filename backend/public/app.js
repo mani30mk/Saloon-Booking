@@ -216,6 +216,16 @@ function renderBookingView() {
       <div class="card" style="margin-top:18px;">
         <h2>Confirm Booking</h2>
         <p style="font-size:15px;"><strong>${dateObj.toDateString()}</strong> at <strong>${selectedSlot}</strong></p>
+        <div style="margin-top: 14px; margin-bottom: 14px;">
+          <label for="numPersons">Number of Persons (1-5)</label>
+          <select id="numPersons" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;">
+            <option value="1">1 Person</option>
+            <option value="2">2 Persons</option>
+            <option value="3">3 Persons</option>
+            <option value="4">4 Persons</option>
+            <option value="5">5 Persons</option>
+          </select>
+        </div>
         <button class="btn" id="confirmBtn" ${busy ? "disabled" : ""}>${busy ? "Booking…" : "Confirm & Generate OTP"}</button>
         <button class="btn secondary" id="cancelSelectBtn">Cancel selection</button>
       </div>`;
@@ -279,11 +289,33 @@ function bindBookingEvents() {
 
 async function confirmBooking() {
   const dateISO = isoDate(dateAtOffset(selectedDayOffset));
+  const numPersonsEl = document.getElementById("numPersons");
+  const persons = numPersonsEl ? parseInt(numPersonsEl.value, 10) : 1;
+
+  if (slotsCache) {
+    const startIndex = slotsCache.findIndex(s => s.time === selectedSlot);
+    if (startIndex !== -1) {
+      const requested = slotsCache.slice(startIndex, startIndex + persons);
+      if (requested.length < persons) {
+        authMsg = { type: "error", text: "Not enough contiguous slots available before closing time." };
+        renderBookingView();
+        return;
+      }
+      for (const slot of requested) {
+        if (slot.status !== "open") {
+          authMsg = { type: "error", text: `Slot ${slot.time} is ${slot.status}. Cannot book contiguous slots.` };
+          renderBookingView();
+          return;
+        }
+      }
+    }
+  }
+
   busy = true; renderBookingView();
   try {
     const data = await api("/api/bookings", {
       method: "POST",
-      body: JSON.stringify({ date: dateISO, time: selectedSlot })
+      body: JSON.stringify({ date: dateISO, time: selectedSlot, persons })
     });
     lastOtp = data.booking.otp;
     authMsg = { type: "success", text: "Slot booked! Your OTP is shown below." };

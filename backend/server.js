@@ -182,20 +182,36 @@ app.get("/api/slots", async (req, res) => {
 });
 
 app.post("/api/bookings", authMiddleware, async (req, res) => {
-  const { date, time } = req.body || {};
+  const { date, time, persons = 1 } = req.body || {};
   if (!date || !time) return res.status(400).json({ error: "date and time are required." });
-  if (isLunch(time)) return res.status(400).json({ error: "That slot is during the lunch break." });
 
-  const slotDt = slotToDate(date, time);
-  if (slotDt < new Date()) {
-    return res.status(400).json({ error: "That slot is in the past." });
+  const numPersons = parseInt(persons, 10);
+  if (isNaN(numPersons) || numPersons < 1 || numPersons > 5) {
+    return res.status(400).json({ error: "Persons must be between 1 and 5." });
   }
+
+  const allTimes = generateSlotTimes();
+  const startIndex = allTimes.indexOf(time);
+  if (startIndex === -1) {
+    return res.status(400).json({ error: "Invalid time slot." });
+  }
+
+  const requestedSlots = allTimes.slice(startIndex, startIndex + numPersons);
+  if (requestedSlots.length < numPersons) {
+    return res.status(400).json({ error: "Not enough contiguous slots available before closing time." });
+  }
+
+  for (const slotTime of requestedSlots) {
+    if (isLunch(slotTime)) return res.status(400).json({ error: `Slot ${slotTime} is during the lunch break.` });
+    const slotDt = slotToDate(date, slotTime);
+    if (slotDt < new Date()) {
+      return res.status(400).json({ error: `Slot ${slotTime} is in the past.` });
+    }
+  }
+
   const dateObj = new Date(date + "T00:00:00");
   if (dateObj.getDay() === 2) {
     return res.status(400).json({ error: "Sorry, Tuesday is a holiday." });
-  }
-  if (!generateSlotTimes().includes(time)) {
-    return res.status(400).json({ error: "Invalid time slot." });
   }
 
   try {
@@ -205,8 +221,11 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
       if (l.start_time && l.end_time) {
         const startDt = slotToDate(date, l.start_time);
         const endDt = slotToDate(date, l.end_time);
-        if (slotDt >= startDt && slotDt < endDt) {
-          return res.status(400).json({ error: "The salon is closed during this time." });
+        for (const slotTime of requestedSlots) {
+          const slotDt = slotToDate(date, slotTime);
+          if (slotDt >= startDt && slotDt < endDt) {
+            return res.status(400).json({ error: `Slot ${slotTime} is during an admin leave.` });
+          }
         }
       }
     }
@@ -216,7 +235,7 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
       [req.user.id, date]
     );
     if (existingDayBookingResult.rows.length > 0) {
-      return res.status(400).json({ error: "You can only book one slot per day." });
+      return res.status(400).json({ error: "You can only book one session per day." });
     }
 
     const activeBookingsResult = await db.query(
@@ -231,25 +250,30 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
     }
 
     const existingSlotResult = await db.query(
-      "SELECT id FROM bookings WHERE date = $1 AND time = $2 AND status = 'confirmed'",
-      [date, time]
+      "SELECT time FROM bookings WHERE date = $1 AND time = ANY($2::text[]) AND status = 'confirmed'",
+      [date, requestedSlots]
     );
     if (existingSlotResult.rows.length > 0) {
-      return res.status(409).json({ error: "Sorry, that slot was just taken. Pick another." });
+      const takenStr = existingSlotResult.rows.map(r => r.time).join(", ");
+      return res.status(409).json({ error: `Sorry, the following slots are already taken: ${takenStr}` });
     }
 
     const otp = genOtp();
-    const insertResult = await db.query(
-      "INSERT INTO bookings (user_id, date, time, otp, status) VALUES ($1, $2, $3, $4, 'confirmed') RETURNING id",
-      [req.user.id, date, time, otp]
-    );
+    const insertedBookings = [];
+    for (const slotTime of requestedSlots) {
+      const insertResult = await db.query(
+        "INSERT INTO bookings (user_id, date, time, otp, status) VALUES ($1, $2, $3, $4, 'confirmed') RETURNING id",
+        [req.user.id, date, slotTime, otp]
+      );
+      insertedBookings.push({ id: insertResult.rows[0].id, date, time: slotTime, otp, status: "confirmed" });
+    }
 
     res.json({
-      booking: { id: insertResult.rows[0].id, date, time, otp, status: "confirmed" }
+      booking: insertedBookings[0]
     });
   } catch (e) {
     console.error(e);
-    res.status(409).json({ error: "Sorry, that slot was just taken. Pick another." });
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
