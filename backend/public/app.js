@@ -47,7 +47,7 @@ function render() {
         </div>` : ``}
     </header>
     <div id="content"></div>
-    <footer>Open daily 9:00 AM – 10:00 PM · Closed 12:00–1:00 PM for lunch</footer>
+    <footer>Open daily 9:00 AM – 10:00 PM · Closed 12:00–1:00 PM for lunch · <a href="/admin.html" style="color:inherit;text-decoration:none;opacity:0.6;">Admin</a></footer>
   `;
   const content = document.getElementById("content");
   content.innerHTML = token ? renderAppShell() : renderAuth();
