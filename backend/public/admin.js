@@ -71,6 +71,7 @@ function renderDashboard() {
     if (b.status === "cancelled") { badgeClass = "cancelled"; badgeText = "Cancelled"; }
     else if (b.status === "completed") { badgeClass = "completed"; badgeText = "Completed"; }
 
+    let actionHtml = "";
     if (b.status === "confirmed") {
       actionHtml = `
         <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
