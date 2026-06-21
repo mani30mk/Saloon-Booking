@@ -161,6 +161,20 @@ function renderLeavesContent() {
   bindLeavesEvents();
 }
 
+function generateSlotOptions() {
+  const slots = [];
+  let h = 9, m = 0;
+  while (h <= 22) { // Allow up to 10:00PM for End Time
+    const period = h >= 12 ? "PM" : "AM";
+    let hh = h % 12; if (hh === 0) hh = 12;
+    const timeStr = `${hh}:${m === 0 ? "00" : m}${period}`;
+    slots.push(`<option value="${timeStr}">${timeStr}</option>`);
+    m += 30;
+    if (m === 60) { m = 0; h++; }
+  }
+  return slots.join("");
+}
+
 function renderLeaves() {
   const msg = authMsg ? `<div class="msg ${authMsg.type}">${authMsg.text}</div>` : "";
   
@@ -185,9 +199,17 @@ function renderLeaves() {
           </select>
         </div>
       </div>
-      <div class="row" id="lv-times" style="display:none; margin-top:10px;">
-        <div style="flex:1;"><label>Start Time</label><input type="text" id="lv-start" placeholder="e.g. 1:00PM" /></div>
-        <div style="flex:1;"><label>End Time</label><input type="text" id="lv-end" placeholder="e.g. 3:00PM" /></div>
+      <div class="row" id="lv-times" style="display:none; margin-top:10px; gap:10px;">
+        <div style="flex:1;"><label>Start Time</label>
+          <select id="lv-start" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;margin-top:4px;">
+            ${generateSlotOptions()}
+          </select>
+        </div>
+        <div style="flex:1;"><label>End Time</label>
+          <select id="lv-end" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;margin-top:4px;">
+            ${generateSlotOptions()}
+          </select>
+        </div>
       </div>
       <div style="margin-top:18px;">
         <button class="btn" id="addLeaveBtn">Save Leave</button>

@@ -3,7 +3,7 @@ let token = localStorage.getItem("salon_token") || null;
 let currentUser = JSON.parse(localStorage.getItem("salon_user") || "null");
 let view = token ? "book" : "login";
 let authMsg = null;
-let selectedDayOffset = 0;
+let selectedDayOffset = (new Date().getHours() >= 22) ? 1 : 0;
 let selectedSlot = null;
 let slotsCache = [];
 let myBookings = [];
@@ -176,14 +176,17 @@ function renderBookingView() {
   const viewArea = document.getElementById("viewArea");
   if (!viewArea) return;
 
+  const startOffset = (new Date().getHours() >= 22) ? 1 : 0;
+  if (selectedDayOffset < startOffset) selectedDayOffset = startOffset;
+
   const days = [];
-  for (let i = 0; i < 20; i++) days.push(dateAtOffset(i));
+  for (let i = startOffset; i < 20 + startOffset; i++) days.push({ offset: i, d: dateAtOffset(i) });
   const dowNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const chips = days.map((d, i) => {
-    const active = i === selectedDayOffset ? "active" : "";
-    return `<div class="daychip ${active}" data-day="${i}">
-      <div class="dow">${dowNames[d.getDay()]}</div>
-      <div class="num">${d.getDate()}</div>
+  const chips = days.map(item => {
+    const active = item.offset === selectedDayOffset ? "active" : "";
+    return `<div class="daychip ${active}" data-day="${item.offset}">
+      <div class="dow">${dowNames[item.d.getDay()]}</div>
+      <div class="num">${item.d.getDate()}</div>
     </div>`;
   }).join("");
 
