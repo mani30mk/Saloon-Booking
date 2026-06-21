@@ -104,12 +104,10 @@ input:focus{border-color:var(--rust);box-shadow:0 0 0 2px rgba(179,70,31,0.15);}
 }
 .booking-item .meta{font-size:14px;}
 .booking-item .meta .date{font-weight:800;font-size:16px;}
-.badge{
-  display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;
-  padding:3px 8px;letter-spacing:0.5px;margin-left:8px;
-}
-.badge.ok{background:#dcead8;color:var(--ok);}
-.badge.cancelled{background:#f1dede;color:var(--danger);}
+.badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; text-transform:uppercase; margin-left:10px; }
+.badge.ok { background:#e1ecd5; color:#4a6534; }
+.badge.cancelled { background:#f5d0d0; color:#853030; }
+.badge.completed { background:#d4e6f1; color:#2874a6; }
 
 .otp-box{
   background:var(--ink);color:var(--paper);padding:18px;text-align:center;

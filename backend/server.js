@@ -257,6 +257,71 @@ app.post("/api/bookings/:id/cancel", authMiddleware, async (req, res) => {
   }
 });
 
+/* ---------------- Admin routes ---------------- */
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
+app.post("/api/admin/login", (req, res) => {
+  const { password } = req.body || {};
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Invalid admin password." });
+  }
+  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
+  res.json({ token });
+});
+
+function adminMiddleware(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Not logged in." });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden: Admin only." });
+    }
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: "Session expired." });
+  }
+}
+
+app.get("/api/admin/bookings", adminMiddleware, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT b.id, b.date, b.time, b.status, b.otp, u.name, u.phone 
+      FROM bookings b 
+      JOIN users u ON b.user_id = u.id 
+      ORDER BY b.date DESC, b.time DESC
+    `);
+    res.json({ bookings: result.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/admin/verify-otp", adminMiddleware, async (req, res) => {
+  const { booking_id, otp } = req.body || {};
+  if (!booking_id || !otp) return res.status(400).json({ error: "booking_id and otp required." });
+
+  try {
+    const result = await db.query("SELECT * FROM bookings WHERE id = $1", [booking_id]);
+    const booking = result.rows[0];
+    if (!booking) return res.status(404).json({ error: "Booking not found." });
+    if (booking.status !== "confirmed") return res.status(400).json({ error: "Booking is not in a confirmed state." });
+    
+    if (booking.otp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP." });
+    }
+
+    await db.query("UPDATE bookings SET status = 'completed' WHERE id = $1", [booking_id]);
+    res.json({ success: true, message: "OTP verified! Booking marked as completed." });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ---------------- Fallback to frontend ---------------- */
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
