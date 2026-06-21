@@ -123,3 +123,18 @@ input:focus{border-color:var(--rust);box-shadow:0 0 0 2px rgba(179,70,31,0.15);}
 .empty{color:var(--olive);font-style:italic;padding:10px 0;}
 .loading{padding:20px;text-align:center;color:var(--olive);}
 footer{text-align:center;font-size:12px;color:var(--olive);margin-top:30px;}
+
+@media (max-width: 600px) {
+  .wrap { padding: 16px 12px 60px; }
+  .brand h1 { font-size: 34px; }
+  .card { padding: 18px; margin-bottom: 18px; box-shadow: 2px 2px 0 var(--ink); }
+  .card h2 { font-size: 24px; }
+  .tabs button { font-size: 16px; padding: 8px; }
+  .slotgrid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+  .slot { font-size: 13px; padding: 8px 4px; }
+  .booking-item { flex-direction: column; align-items: flex-start; }
+  .booking-item > div { width: 100%; }
+  .btn { width: 100%; text-align: center; margin-bottom: 8px; }
+  .btn.verify-btn { width: auto; margin-bottom: 0; }
+  .row { flex-direction: column; align-items: stretch; }
+}

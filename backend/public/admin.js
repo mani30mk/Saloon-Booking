@@ -65,9 +65,9 @@ function renderDashboard() {
     let actionHtml = "";
     if (b.status === "confirmed") {
       actionHtml = `
-        <div style="margin-top:10px; display:flex; gap:10px;">
-          <input type="text" id="otp-${b.id}" placeholder="Enter OTP" style="width:120px; padding:8px;" />
-          <button class="btn verify-btn" data-id="${b.id}">Verify OTP</button>
+        <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <input type="text" id="otp-${b.id}" placeholder="Enter OTP" style="flex:1; min-width:120px; padding:10px; font-size:16px;" />
+          <button class="btn verify-btn" data-id="${b.id}" style="margin:0; flex-shrink:0;">Verify OTP</button>
         </div>
       `;
     }
