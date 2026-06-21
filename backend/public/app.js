@@ -184,18 +184,23 @@ function renderBookingView() {
 
   const dateObj = dateAtOffset(selectedDayOffset);
 
-  const slotsHtml = slotsCache.map(s => {
-    let cls = "slot";
-    let clickable = false;
-    if (s.status === "lunch") cls += " lunch";
-    else if (s.status === "taken") cls += " taken";
-    else if (s.status === "past") cls += " past";
-    else {
-      clickable = true;
-      if (selectedSlot === s.time) cls += " selected";
-    }
-    return `<div class="${cls}" ${clickable ? `data-slot="${s.time}"` : ""}>${s.time}</div>`;
-  }).join("");
+  let slotsHtml = "";
+  if (!slotsCache) {
+    slotsHtml = `<div class="loading">Loading slots...</div>`;
+  } else {
+    slotsHtml = slotsCache.map(s => {
+      let cls = "slot";
+      let clickable = false;
+      if (s.status === "lunch") cls += " lunch";
+      else if (s.status === "taken") cls += " taken";
+      else if (s.status === "past") cls += " past";
+      else {
+        clickable = true;
+        if (selectedSlot === s.time) cls += " selected";
+      }
+      return `<div class="${cls}" ${clickable ? `data-slot="${s.time}"` : ""}>${s.time}</div>`;
+    }).join("");
+  }
 
   const msg = authMsg ? `<div class="msg ${authMsg.type}">${escapeHtml(authMsg.text)}</div>` : "";
 
@@ -243,8 +248,12 @@ function renderBookingView() {
 function bindBookingEvents() {
   document.querySelectorAll(".daychip").forEach(el => {
     el.onclick = () => {
-      selectedDayOffset = parseInt(el.dataset.day, 10);
+      const newOffset = parseInt(el.dataset.day, 10);
+      if (selectedDayOffset === newOffset) return;
+      selectedDayOffset = newOffset;
       selectedSlot = null; authMsg = null; lastOtp = null;
+      slotsCache = null; // Mark as loading
+      renderBookingView(); // Instant feedback
       loadSlots();
     };
   });
