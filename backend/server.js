@@ -19,8 +19,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const OPEN_HOUR = 9;    // 9:00 AM
 const CLOSE_HOUR = 22;  // 10:00 PM
-const LUNCH_START = 12; // 12:00 PM
-const LUNCH_END = 13;   // 1:00 PM
+const LUNCH_START = 13; // 1:00 PM
+const LUNCH_END = 14;   // 2:00 PM
+const TEA_START = 16; // 4:30 PM
 
 function generateSlotTimes() {
   const slots = [];
@@ -40,19 +41,37 @@ function fmtTime(h, m) {
 }
 
 function isLunch(time) {
-  return time === "12:00PM" || time === "12:30PM";
+  return time === "1:00PM" || time === "1:30PM";
+}
+
+function isTea(time) {
+  return time === "4:30PM";
+}
+
+function getShopWallDate() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(new Date());
+  const p = {};
+  parts.forEach(part => { p[part.type] = part.value; });
+  let h = parseInt(p.hour, 10);
+  if (h === 24) h = 0;
+  return new Date(parseInt(p.year), parseInt(p.month) - 1, parseInt(p.day), h, parseInt(p.minute), parseInt(p.second));
 }
 
 function slotToDate(dateStr, time) {
+  const [yyyy, mm, dd] = dateStr.split('-');
   const match = time.match(/(\d+):(\d+)(AM|PM)/);
   let h = parseInt(match[1], 10);
   const m = parseInt(match[2], 10);
   const period = match[3];
   if (period === "PM" && h !== 12) h += 12;
   if (period === "AM" && h === 12) h = 0;
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setHours(h, m, 0, 0);
-  return d;
+  return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), h, m, 0, 0);
 }
 
 function genOtp() {
@@ -148,10 +167,11 @@ app.get("/api/slots", async (req, res) => {
     const leavesResult = await db.query("SELECT * FROM admin_leaves WHERE date = $1", [date]);
     const leaves = leavesResult.rows;
 
-    const dateObj = new Date(date + "T00:00:00");
+    const [yyyy, mm, dd] = date.split('-');
+    const dateObj = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
     const isTuesday = dateObj.getDay() === 2;
 
-    const now = new Date();
+    const now = getShopWallDate();
     const slots = allTimes.map(time => {
       let status = "open";
       if (isTuesday) status = "holiday";
@@ -168,6 +188,7 @@ app.get("/api/slots", async (req, res) => {
         }
         if (inLeave) status = "leave";
         else if (isLunch(time)) status = "lunch";
+        else if (isTea(time)) status = "tea";
         else if (taken.includes(time)) status = "taken";
         else if (slotToDate(date, time) < now) status = "past";
       }
@@ -203,13 +224,15 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
 
   for (const slotTime of requestedSlots) {
     if (isLunch(slotTime)) return res.status(400).json({ error: `Slot ${slotTime} is during the lunch break.` });
+    if (isTea(slotTime)) return res.status(400).json({ error: `Slot ${slotTime} is during the tea break.` });
     const slotDt = slotToDate(date, slotTime);
-    if (slotDt < new Date()) {
+    if (slotDt < getShopWallDate()) {
       return res.status(400).json({ error: `Slot ${slotTime} is in the past.` });
     }
   }
 
-  const dateObj = new Date(date + "T00:00:00");
+  const [yyyy, mm, dd] = date.split('-');
+  const dateObj = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
   if (dateObj.getDay() === 2) {
     return res.status(400).json({ error: "Sorry, Tuesday is a holiday." });
   }
@@ -242,7 +265,7 @@ app.post("/api/bookings", authMiddleware, async (req, res) => {
       "SELECT date, time FROM bookings WHERE user_id = $1 AND status = 'confirmed'",
       [req.user.id]
     );
-    const now = new Date();
+    const now = getShopWallDate();
     for (const b of activeBookingsResult.rows) {
       if (slotToDate(b.date, b.time) >= now) {
         return res.status(400).json({ error: "You already have an active booking. You cannot book another until it expires or is cancelled." });
@@ -304,7 +327,7 @@ app.post("/api/bookings/:id/cancel", authMiddleware, async (req, res) => {
     }
 
     const slotDt = slotToDate(booking.date, booking.time);
-    const msUntil = slotDt - new Date();
+    const msUntil = slotDt - getShopWallDate();
     if (msUntil < 60 * 60 * 1000) {
       return res.status(400).json({ error: "Cancellations must be made at least 1 hour before the booking time." });
     }

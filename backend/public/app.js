@@ -53,7 +53,7 @@ function render() {
         </div>` : ``}
     </header>
     <div id="content"></div>
-    <footer>Open daily 9:00 AM – 10:00 PM · Closed 12:00–1:00 PM for lunch · <a href="/admin.html" style="color:inherit;text-decoration:none;opacity:0.6;">Admin</a></footer>
+    <footer>Open daily 9:00 AM – 10:00 PM · Lunch 1:00–2:00 PM · Tea 4:30–5:00 PM · <a href="/admin.html" style="color:inherit;text-decoration:none;opacity:0.6;">Admin</a></footer>
   `;
   const content = document.getElementById("content");
   content.innerHTML = token ? renderAppShell() : renderAuth();
@@ -201,6 +201,7 @@ function renderBookingView() {
       let cls = "slot";
       let clickable = false;
       if (s.status === "lunch") cls += " lunch";
+      else if (s.status === "tea") cls += " tea";
       else if (s.status === "taken") cls += " taken";
       else if (s.status === "past") cls += " past";
       else if (s.status === "holiday" || s.status === "leave") cls += " leave";
@@ -256,6 +257,7 @@ function renderBookingView() {
         <span><span class="sw" style="background:var(--rust);"></span>Selected</span>
         <span><span class="sw" style="background:#e3d6d6;"></span>Booked</span>
         <span><span class="sw" style="background:#e8dfc9;"></span>Lunch break</span>
+        <span><span class="sw" style="background:#f0e6d2;"></span>Tea break</span>
         <span><span class="sw" style="background:#d6e3d6;"></span>Holiday/Leave</span>
       </div>
       <div class="slotgrid">${slotsHtml}</div>
@@ -392,15 +394,14 @@ function renderMyBookingsView() {
 }
 
 function slotToDateClient(dateStr, time) {
+  const [yyyy, mm, dd] = dateStr.split('-');
   const match = time.match(/(\d+):(\d+)(AM|PM)/);
   let h = parseInt(match[1], 10);
   const m = parseInt(match[2], 10);
   const period = match[3];
   if (period === "PM" && h !== 12) h += 12;
   if (period === "AM" && h === 12) h = 0;
-  const d = new Date(dateStr + "T00:00:00");
-  d.setHours(h, m, 0, 0);
-  return d;
+  return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), h, m, 0, 0);
 }
 
 async function cancelBooking(id) {
