@@ -173,6 +173,35 @@ async function loadSlots() {
   renderBookingView();
 }
 
+// Live Updates: Poll the server every 5 seconds to get the latest slots
+setInterval(async () => {
+  if (!token || view !== "book" || busy) return;
+  const dateObj = dateAtOffset(selectedDayOffset);
+  const dateISO = isoDate(dateObj);
+  try {
+    const data = await api(`/api/slots?date=${dateISO}`);
+    const oldCacheStr = JSON.stringify(slotsCache);
+    const newCacheStr = JSON.stringify(data.slots);
+    
+    // Only re-render if the slots actually changed
+    if (oldCacheStr !== newCacheStr && slotsCache) {
+      slotsCache = data.slots;
+      
+      // If the slot they were currently looking at was just taken by someone else
+      if (selectedSlot) {
+        const s = slotsCache.find(x => x.time === selectedSlot);
+        if (s && s.status !== "open") {
+          selectedSlot = null;
+          authMsg = { type: "error", text: "The slot you selected was just booked by someone else! Please pick another." };
+        }
+      }
+      renderBookingView();
+    }
+  } catch (e) {
+    // silently fail on background poll errors
+  }
+}, 5000);
+
 function renderBookingView() {
   const viewArea = document.getElementById("viewArea");
   if (!viewArea) return;
