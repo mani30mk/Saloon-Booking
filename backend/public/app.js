@@ -287,7 +287,7 @@ function renderBookingView() {
   let confirmBtn = "";
   if (selectedSlot) {
     confirmBtn = `
-      <div class="card" style="margin-top:18px;">
+      <div class="card" style="margin-top:18px;" id="confirmBox">
         <h2>Confirm Booking</h2>
         <p style="font-size:15px;"><strong>${dateObj.toDateString()}</strong> at <strong>${selectedSlot}</strong></p>
         <div style="margin-top: 14px; margin-bottom: 14px;">
@@ -308,7 +308,7 @@ function renderBookingView() {
   let otpBox = "";
   if (lastOtp) {
     otpBox = `
-      <div class="otp-box">
+      <div class="otp-box" id="otpBox">
         <div class="label">Booking confirmed · Your OTP</div>
         <div class="code">${lastOtp}</div>
         <div style="font-size:12px;margin-top:6px;color:#cfc4ac;">Show this code at the counter on arrival</div>
@@ -354,6 +354,8 @@ function bindBookingEvents() {
       selectedSlot = el.dataset.slot;
       authMsg = null;
       renderBookingView();
+      const box = document.getElementById("confirmBox");
+      if (box) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
   });
   const confirmBtn = document.getElementById("confirmBtn");
@@ -396,6 +398,8 @@ async function confirmBooking() {
     authMsg = { type: "success", text: "Slot booked! Your OTP is shown below." };
     selectedSlot = null;
     await loadSlots(); // refresh availability
+    const obox = document.getElementById("otpBox");
+    if (obox) obox.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (e) {
     authMsg = { type: "error", text: e.message };
     selectedSlot = null;
