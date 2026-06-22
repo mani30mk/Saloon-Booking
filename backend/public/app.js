@@ -284,25 +284,40 @@ function renderBookingView() {
 
   const msg = authMsg ? `<div class="msg ${authMsg.type}">${escapeHtml(authMsg.text)}</div>` : "";
 
+  const hasActiveBooking = myBookings && myBookings.some(b => {
+    if (b.status !== "confirmed") return false;
+    const slotDt = slotToDateClient(b.date, b.time);
+    return slotDt >= new Date();
+  });
+
   let confirmBtn = "";
   if (selectedSlot) {
-    confirmBtn = `
-      <div class="card" style="margin-top:18px;" id="confirmBox">
-        <h2>Confirm Booking</h2>
-        <p style="font-size:15px;"><strong>${dateObj.toDateString()}</strong> at <strong>${selectedSlot}</strong></p>
-        <div style="margin-top: 14px; margin-bottom: 14px;">
-          <label for="numPersons">Number of Persons (1-5)</label>
-          <select id="numPersons" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;">
-            <option value="1">1 Person</option>
-            <option value="2">2 Persons</option>
-            <option value="3">3 Persons</option>
-            <option value="4">4 Persons</option>
-            <option value="5">5 Persons</option>
-          </select>
-        </div>
-        <button class="btn" id="confirmBtn" ${busy ? "disabled" : ""}>${busy ? "Booking…" : "Confirm & Generate OTP"}</button>
-        <button class="btn secondary" id="cancelSelectBtn">Cancel selection</button>
-      </div>`;
+    if (hasActiveBooking) {
+      confirmBtn = `
+        <div class="card" style="margin-top:18px;" id="confirmBox">
+          <h2>Limit Reached</h2>
+          <div class="msg error" style="margin-top:0;">You already have an active appointment. Please complete or cancel it in the "My Bookings" tab before booking another.</div>
+          <button class="btn secondary" id="cancelSelectBtn" style="margin-top:10px;">Close</button>
+        </div>`;
+    } else {
+      confirmBtn = `
+        <div class="card" style="margin-top:18px;" id="confirmBox">
+          <h2>Confirm Booking</h2>
+          <p style="font-size:15px;"><strong>${dateObj.toDateString()}</strong> at <strong>${selectedSlot}</strong></p>
+          <div style="margin-top: 14px; margin-bottom: 14px;">
+            <label for="numPersons">Number of Persons (1-5)</label>
+            <select id="numPersons" style="width:100%;padding:11px 12px;border:1.5px solid var(--ink);background:#fffefb;font-size:15px;outline:none;">
+              <option value="1">1 Person</option>
+              <option value="2">2 Persons</option>
+              <option value="3">3 Persons</option>
+              <option value="4">4 Persons</option>
+              <option value="5">5 Persons</option>
+            </select>
+          </div>
+          <button class="btn" id="confirmBtn" ${busy ? "disabled" : ""}>${busy ? "Booking…" : "Confirm & Generate OTP"}</button>
+          <button class="btn secondary" id="cancelSelectBtn">Cancel selection</button>
+        </div>`;
+    }
   }
 
   let otpBox = "";
