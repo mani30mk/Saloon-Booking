@@ -284,6 +284,20 @@ function renderBookingView() {
 
   const msg = authMsg ? `<div class="msg ${authMsg.type}">${escapeHtml(authMsg.text)}</div>` : "";
 
+  let activeBookingCard = "";
+  if (myBookings && myBookings.length > 0) {
+    const activeBooking = myBookings.find(b => b.status === "confirmed" && b.date === isoDate(dateObj));
+    if (activeBooking) {
+      activeBookingCard = `
+        <div class="otp-box" id="otpBox" style="margin-bottom:18px;">
+          <div class="label">Your Appointment · ${dateObj.toDateString()}</div>
+          <div style="font-size:24px; font-weight:bold; margin-top:8px;">${activeBooking.time}</div>
+          <div class="code" style="margin-top:10px;">OTP: ${activeBooking.otp}</div>
+          <div style="font-size:12px;margin-top:6px;color:#cfc4ac;">Show this code at the counter on arrival</div>
+        </div>`;
+    }
+  }
+
   const hasActiveBooking = myBookings && myBookings.some(b => {
     if (b.status !== "confirmed") return false;
     const slotDt = slotToDateClient(b.date, b.time);
@@ -320,18 +334,9 @@ function renderBookingView() {
     }
   }
 
-  let otpBox = "";
-  if (lastOtp) {
-    otpBox = `
-      <div class="otp-box" id="otpBox">
-        <div class="label">Booking confirmed · Your OTP</div>
-        <div class="code">${lastOtp}</div>
-        <div style="font-size:12px;margin-top:6px;color:#cfc4ac;">Show this code at the counter on arrival</div>
-      </div>`;
-  }
-
   viewArea.innerHTML = `
     ${msg}
+    ${activeBookingCard}
     <div class="card">
       <h2>Pick a Date</h2>
       <div class="datepick">${chips}</div>
@@ -347,7 +352,6 @@ function renderBookingView() {
       <div class="slotgrid">${slotsHtml}</div>
     </div>
     ${confirmBtn}
-    ${otpBox}
   `;
   bindBookingEvents();
 }
@@ -410,9 +414,11 @@ async function confirmBooking() {
       body: JSON.stringify({ date: dateISO, time: selectedSlot, persons })
     });
     lastOtp = data.booking.otp;
-    authMsg = { type: "success", text: "Slot booked! Your OTP is shown below." };
+    authMsg = { type: "success", text: "Slot booked successfully!" };
     selectedSlot = null;
     await loadSlots(); // refresh availability
+    await loadBookingsSilent(); // fetch the new booking to display at the top
+    renderBookingView();
     const obox = document.getElementById("otpBox");
     if (obox) obox.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (e) {
@@ -427,6 +433,13 @@ async function confirmBooking() {
 }
 
 /* ---------------- My bookings view ---------------- */
+async function loadBookingsSilent() {
+  try {
+    const data = await api("/api/bookings");
+    myBookings = data.bookings;
+  } catch (e) {}
+}
+
 async function loadBookings() {
   const viewArea = document.getElementById("viewArea");
   try {
