@@ -4,6 +4,7 @@ let bookings = [];
 let leaves = [];
 let authMsg = null;
 let busy = false;
+let todaySlotsStats = { total: 0, booked: 0 };
 
 const API = window.location.protocol === "file:" ? "http://localhost:3000" : window.location.origin;
 
@@ -101,6 +102,12 @@ function renderDashboard() {
   return `
     <div style="max-width:800px;">
       ${msg}
+      <div class="card" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Today's Overview</h2>
+        <div style="font-size:16px;">
+          <strong style="font-size:20px; color:var(--rust);">${todaySlotsStats.booked}</strong> / ${todaySlotsStats.total} Slots Booked
+        </div>
+      </div>
       ${renderSection("Pending Bookings", pending)}
       ${renderSection("Completed Bookings", completed)}
       ${renderSection("Cancelled Bookings", cancelled)}
@@ -134,6 +141,21 @@ async function loadBookings() {
   try {
     const data = await api("/api/admin/bookings");
     bookings = data.bookings;
+    
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const parts = formatter.formatToParts(new Date());
+    const p = {}; parts.forEach(part => { p[part.type] = part.value; });
+    const todayISO = `${p.year}-${p.month}-${p.day}`;
+    
+    const slotsData = await api(`/api/slots?date=${todayISO}`);
+    let workingSlots = 0;
+    if (slotsData.slots) {
+      slotsData.slots.forEach(s => {
+        if (s.status !== "lunch" && s.status !== "tea" && s.status !== "leave" && s.status !== "holiday") workingSlots++;
+      });
+    }
+    const bookedToday = bookings.filter(b => b.date === todayISO && (b.status === "confirmed" || b.status === "completed")).length;
+    todaySlotsStats = { total: workingSlots, booked: bookedToday };
   } catch (e) {
     authMsg = { type: "error", text: e.message };
   }
@@ -147,10 +169,30 @@ setInterval(async () => {
   if (view === "dashboard") {
     try {
       const data = await api("/api/admin/bookings");
+      
+      const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const parts = formatter.formatToParts(new Date());
+      const p = {}; parts.forEach(part => { p[part.type] = part.value; });
+      const todayISO = `${p.year}-${p.month}-${p.day}`;
+      
+      const slotsData = await api(`/api/slots?date=${todayISO}`);
+      let workingSlots = 0;
+      if (slotsData.slots) {
+        slotsData.slots.forEach(s => {
+          if (s.status !== "lunch" && s.status !== "tea" && s.status !== "leave" && s.status !== "holiday") workingSlots++;
+        });
+      }
+      const bookedToday = data.bookings.filter(b => b.date === todayISO && (b.status === "confirmed" || b.status === "completed")).length;
+      
+      const newStatsStr = JSON.stringify({ total: workingSlots, booked: bookedToday });
+      const oldStatsStr = JSON.stringify(todaySlotsStats);
+
       const oldCacheStr = JSON.stringify(bookings);
       const newCacheStr = JSON.stringify(data.bookings);
-      if (oldCacheStr !== newCacheStr) {
+      
+      if (oldCacheStr !== newCacheStr || oldStatsStr !== newStatsStr) {
         bookings = data.bookings;
+        todaySlotsStats = { total: workingSlots, booked: bookedToday };
         // Don't re-render and erase input if the admin is currently typing an OTP
         const activeEl = document.activeElement;
         if (activeEl && activeEl.tagName === "INPUT") return;
