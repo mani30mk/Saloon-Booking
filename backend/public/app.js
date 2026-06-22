@@ -209,7 +209,20 @@ setInterval(async () => {
       const newCacheStr = JSON.stringify(data.bookings);
       
       if (oldCacheStr !== newCacheStr && myBookings) {
+        let wasCancelled = false;
+        for (const oldB of myBookings) {
+          if (oldB.status === "confirmed") {
+            const newB = data.bookings.find(b => b.id === oldB.id);
+            if (newB && newB.status === "cancelled") {
+              wasCancelled = true;
+            }
+          }
+        }
+        
         myBookings = data.bookings;
+        if (wasCancelled) {
+          authMsg = { type: "error", text: "Notice: One of your appointments was just cancelled by the salon." };
+        }
         renderMyBookingsView();
       }
     } catch (e) {
