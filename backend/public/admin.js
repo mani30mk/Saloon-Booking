@@ -140,6 +140,36 @@ async function loadBookings() {
   renderDashboardContent();
 }
 
+// Live Updates: Poll the server every 5 seconds for new bookings or leaves
+setInterval(async () => {
+  if (!adminToken || busy) return;
+  
+  if (view === "dashboard") {
+    try {
+      const data = await api("/api/admin/bookings");
+      const oldCacheStr = JSON.stringify(bookings);
+      const newCacheStr = JSON.stringify(data.bookings);
+      if (oldCacheStr !== newCacheStr) {
+        bookings = data.bookings;
+        // Don't re-render and erase input if the admin is currently typing an OTP
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl.tagName === "INPUT") return;
+        renderDashboardContent();
+      }
+    } catch (e) {}
+  } else if (view === "leaves") {
+    try {
+      const data = await api("/api/admin/leaves");
+      const oldCacheStr = JSON.stringify(leaves);
+      const newCacheStr = JSON.stringify(data.leaves);
+      if (oldCacheStr !== newCacheStr) {
+        leaves = data.leaves;
+        renderLeavesContent();
+      }
+    } catch (e) {}
+  }
+}, 5000);
+
 function renderDashboardContent() {
   const content = document.getElementById("content");
   if(content) content.innerHTML = renderDashboard();
