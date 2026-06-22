@@ -173,32 +173,48 @@ async function loadSlots() {
   renderBookingView();
 }
 
-// Live Updates: Poll the server every 5 seconds to get the latest slots
+// Live Updates: Poll the server every 5 seconds to get the latest slots and bookings
 setInterval(async () => {
-  if (!token || view !== "book" || busy) return;
-  const dateObj = dateAtOffset(selectedDayOffset);
-  const dateISO = isoDate(dateObj);
-  try {
-    const data = await api(`/api/slots?date=${dateISO}`);
-    const oldCacheStr = JSON.stringify(slotsCache);
-    const newCacheStr = JSON.stringify(data.slots);
-    
-    // Only re-render if the slots actually changed
-    if (oldCacheStr !== newCacheStr && slotsCache) {
-      slotsCache = data.slots;
+  if (!token || busy) return;
+  
+  if (view === "book") {
+    const dateObj = dateAtOffset(selectedDayOffset);
+    const dateISO = isoDate(dateObj);
+    try {
+      const data = await api(`/api/slots?date=${dateISO}`);
+      const oldCacheStr = JSON.stringify(slotsCache);
+      const newCacheStr = JSON.stringify(data.slots);
       
-      // If the slot they were currently looking at was just taken by someone else
-      if (selectedSlot) {
-        const s = slotsCache.find(x => x.time === selectedSlot);
-        if (s && s.status !== "open") {
-          selectedSlot = null;
-          authMsg = { type: "error", text: "The slot you selected was just booked by someone else! Please pick another." };
+      // Only re-render if the slots actually changed
+      if (oldCacheStr !== newCacheStr && slotsCache) {
+        slotsCache = data.slots;
+        
+        // If the slot they were currently looking at was just taken by someone else
+        if (selectedSlot) {
+          const s = slotsCache.find(x => x.time === selectedSlot);
+          if (s && s.status !== "open") {
+            selectedSlot = null;
+            authMsg = { type: "error", text: "The slot you selected was just booked by someone else! Please pick another." };
+          }
         }
+        renderBookingView();
       }
-      renderBookingView();
+    } catch (e) {
+      // silently fail on background poll errors
     }
-  } catch (e) {
-    // silently fail on background poll errors
+  } else if (view === "mybookings") {
+    try {
+      const data = await api("/api/bookings");
+      const oldCacheStr = JSON.stringify(myBookings);
+      const newCacheStr = JSON.stringify(data.bookings);
+      
+      if (oldCacheStr !== newCacheStr && myBookings) {
+        myBookings = data.bookings;
+        renderMyBookingsView();
+      }
+    } catch (e) {
+      // silently fail
+    }
   }
 }, 5000);
 
